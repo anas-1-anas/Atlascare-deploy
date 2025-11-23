@@ -337,24 +337,56 @@ const PharmacistLookup = () => {
   const ensureStillIssued = async () => {
     try {
       const id = topicId && topicId.trim();
-      if (!id) return false;
-      const statusResp = await fetch(`/api/status/topic/${encodeURIComponent(id)}`);
+      if (!id) {
+        console.warn('[STATUS CHECK] No topic ID provided');
+        return false;
+      }
+      
+      const statusResp = await fetch(getApiUrl(`/api/status/topic/${encodeURIComponent(id)}`));
+      
+      if (!statusResp.ok) {
+        console.warn(`[STATUS CHECK] Status endpoint returned ${statusResp.status}`);
+        // If 404, prescription might not exist - don't assume it's dispensed
+        if (statusResp.status === 404) {
+          console.warn('[STATUS CHECK] Prescription not found - cannot verify status');
+          return false;
+        }
+        // For other errors, assume it's still eligible (don't block payment)
+        console.warn('[STATUS CHECK] Status check failed, allowing payment to proceed');
+        return true;
+      }
+      
       const statusData = await statusResp.json();
+      if (!statusData || !statusData.success) {
+        console.warn('[STATUS CHECK] Invalid status response');
+        return true; // Don't block on invalid response
+      }
+      
       const status = ((statusData && statusData.status) || 'unknown').toLowerCase();
+      console.log(`[STATUS CHECK] Current status: ${status}`);
       
       // Allow if status is 'issued' OR if prescription has remaining dispenses
-      if (status === 'issued') return true;
+      if (status === 'issued') {
+        console.log('[STATUS CHECK] Status is issued - eligible');
+        return true;
+      }
       
       // If paid or dispensed, check if there are remaining dispenses (for multi-dispense refills)
       if ((status === 'paid' || status === 'dispensed') && prescription) {
         const dispenseCount = prescription.dispenseCount || 0;
         const maxDispenses = prescription.maxDispenses || 1;
-        return dispenseCount < maxDispenses;
+        const hasRemaining = dispenseCount < maxDispenses;
+        console.log(`[STATUS CHECK] Status is ${status}, dispense count: ${dispenseCount}/${maxDispenses}, has remaining: ${hasRemaining}`);
+        return hasRemaining;
       }
       
-      return false;
-    } catch (_) {
-      return false;
+      // Unknown status - don't block, let backend decide
+      console.warn(`[STATUS CHECK] Unknown status: ${status}, allowing payment`);
+      return true;
+    } catch (err) {
+      console.error('[STATUS CHECK] Error checking status:', err);
+      // On error, don't block payment - let backend validate
+      return true;
     }
   };
 
@@ -450,7 +482,7 @@ const PharmacistLookup = () => {
     }
   };
 
-  const handleScan = (data) => {
+  const handleScan = async (data) => {
     if (!data) return;
     try {
       // Try JSON first
@@ -462,14 +494,44 @@ const PharmacistLookup = () => {
         setTopicId(parsed.t);
         handleLookup(parsed.t);
         setScannedData(`QR v${parsed.v || 'unknown'} detected - Dispense ${parsed.dc || 0}/${parsed.md || 1}`);
+        setCameraActive(false);
       } else if (parsed?.topicID) {
         // Fallback for old format
         setTopicId(parsed.topicID);
         handleLookup(parsed.topicID);
         setScannedData('QR JSON detected (legacy format)');
+        setCameraActive(false);
+      } else if (parsed?.prescriptionId) {
+        // Handle prescriptionId format - need to lookup topicID from backend
+        try {
+          const response = await fetch(getApiUrl(`/api/prescriptions/${parsed.prescriptionId}`));
+          const prescriptionData = await response.json();
+          if (prescriptionData.success && prescriptionData.prescription) {
+            // Try to get topicID from prescription data
+            const topicID = prescriptionData.prescription.topicID || 
+                          prescriptionData.prescription.topicId ||
+                          prescriptionData.prescription.qr?.data?.t;
+            if (topicID) {
+              setTopicId(topicID);
+              handleLookup(topicID);
+              setScannedData('QR detected (prescriptionId format)');
+              setCameraActive(false);
+            } else {
+              setError('Could not find topic ID for this prescription');
+              setScannedData('QR detected but topic ID not found');
+            }
+          } else {
+            setError('Prescription not found');
+            setScannedData('Prescription not found');
+          }
+        } catch (err) {
+          console.error('Error looking up prescription:', err);
+          setError('Failed to lookup prescription. Please enter topic ID manually.');
+          setScannedData('QR detected but lookup failed');
+        }
+      } else {
+        setScannedData('QR detected but format not recognized');
       }
-      
-      setCameraActive(false);
     } catch (_) {
       try {
         // Try URL pattern

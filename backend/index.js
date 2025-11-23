@@ -289,6 +289,13 @@ app.get('/api/prescriptions/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Prescription not found' });
     }
     
+    // Add topicID to prescription if available
+    const topicID = prescriptionToTopic.get(id);
+    if (topicID) {
+      prescription.topicID = topicID;
+      prescription.topicId = topicID; // Also add camelCase version
+    }
+    
     res.json({ success: true, prescription });
   } catch (error) {
     console.error('Error fetching prescription:', error);

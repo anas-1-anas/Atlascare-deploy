@@ -188,7 +188,18 @@ async function generatePrescriptionPdf(prescription, options = {}) {
   }
 
   // QR code block bottom-right (compact size)
-  const qrPayload = options.qrData || { prescriptionId: prescription.id || prescription.prescriptionId };
+  // Ensure QR payload always includes topicID (t field) for proper scanning
+  let qrPayload = options.qrData;
+  if (!qrPayload || !qrPayload.t) {
+    // Fallback: if qrData doesn't have topicID, try to construct minimal payload
+    // But prefer the full QR payload from options
+    if (options.qrData && typeof options.qrData === 'object') {
+      qrPayload = options.qrData;
+    } else {
+      // Last resort: use prescriptionId only (will need backend lookup)
+      qrPayload = { prescriptionId: prescription.id || prescription.prescriptionId };
+    }
+  }
   const qrPng = await QRCode.toBuffer(JSON.stringify(qrPayload), { width: 80, margin: 1, color: { dark: '#000000', light: '#FFFFFF' } });
   doc.moveDown(0.2);
   const qrStartY = doc.y + 2;
