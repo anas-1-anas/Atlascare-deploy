@@ -35,31 +35,49 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    // Get allowed origins from environment variable or use defaults
+    // Get allowed origins from environment variable
     const allowedOrigins = process.env.ALLOWED_ORIGINS 
-      ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+      ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(o => o.length > 0)
       : [];
     
-    // In development, allow localhost
+    // In development, always allow localhost
     if (process.env.NODE_ENV !== 'production') {
-      allowedOrigins.push('http://localhost:3000', 'http://localhost:5173');
+      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        return callback(null, true);
+      }
     }
     
-    // Check if origin is allowed
-    if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
-      callback(null, true);
+    // If ALLOWED_ORIGINS is set, only allow those origins
+    if (allowedOrigins.length > 0) {
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`[CORS] Blocked origin: ${origin}. Allowed: ${allowedOrigins.join(', ')}`);
+        callback(new Error('Not allowed by CORS'));
+      }
     } else {
-      callback(new Error('Not allowed by CORS'));
+      // If ALLOWED_ORIGINS is not set, allow all origins (for easier deployment)
+      // In production, you should set ALLOWED_ORIGINS for security
+      console.log(`[CORS] Allowing origin (ALLOWED_ORIGINS not set): ${origin}`);
+      callback(null, true);
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Length', 'X-Foo', 'X-Bar'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use(helmet());
+
+// Configure helmet to not interfere with CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false
+}));
 
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 120 });
 app.use(limiter);
