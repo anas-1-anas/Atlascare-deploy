@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { getApiUrl } from '../utils/api';
 
 const PaymentPage = () => {
   const { id } = useParams();
@@ -26,7 +27,7 @@ const PaymentPage = () => {
 
   const fetchPrescription = async (prescriptionId) => {
     try {
-      const response = await fetch(`/api/prescriptions/${prescriptionId}`);
+      const response = await fetch(getApiUrl(`/api/prescriptions/${prescriptionId}`));
       const data = await response.json();
       
       if (data.success) {
@@ -53,7 +54,7 @@ const PaymentPage = () => {
     try {
       // In a real app, this would connect to the user's wallet and process the payment
       // For demo purposes, we'll simulate a payment with the backend
-      const response = await fetch('/api/payments', {
+      const response = await fetch(getApiUrl('/api/payments'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

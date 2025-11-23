@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiLogIn, FiUser, FiLock, FiAlertCircle } from 'react-icons/fi';
+import { getApiUrl } from '../utils/api';
 
 const Login = ({ onLogin }) => {
   const [formData, setFormData] = useState({
@@ -44,7 +45,7 @@ const Login = ({ onLogin }) => {
 
     try {
       // In a real app, this would be an API call to your backend
-      const response = await fetch('/api/login', {
+      const response = await fetch(getApiUrl('/api/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

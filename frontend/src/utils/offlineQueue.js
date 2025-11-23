@@ -1,4 +1,5 @@
 import indexedDBManager from './indexedDB';
+import { getApiUrl } from './api';
 
 class OfflineQueueManager {
   constructor() {
@@ -93,7 +94,7 @@ class OfflineQueueManager {
 
   async processItem(item) {
     try {
-      const response = await fetch(item.endpoint, {
+      const response = await fetch(getApiUrl(item.endpoint), {
         method: item.method,
         headers: {
           'Content-Type': 'application/json',

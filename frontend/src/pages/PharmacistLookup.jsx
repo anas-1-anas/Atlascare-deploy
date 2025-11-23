@@ -8,6 +8,7 @@ import useDocumentTitle from '../hooks/useDocumentTitle';
 import { performOfflineVerification } from '../utils/offlineVerification';
 import { cachePrescriptionWithKey } from '../utils/doctorKeyCache';
 import offlineQueueManager from '../utils/offlineQueue';
+import { getApiUrl } from '../utils/api';
 
 const PharmacistLookup = () => {
   const [step, setStep] = useState(1); // 1 Verify, 2 Dispense & Payment, 3 Complete (FSE + JSON + PDF)
@@ -65,7 +66,7 @@ const PharmacistLookup = () => {
     // Load medicines from backend unified endpoint
     (async () => {
       try {
-        const resp = await fetch('/api/medicines');
+        const resp = await fetch(getApiUrl('/api/medicines'));
         const data = await resp.json();
         setMedicinesData(Array.isArray(data) ? data : []);
       } catch (_) {
@@ -193,7 +194,7 @@ const PharmacistLookup = () => {
 
       // Online verification (original logic)
       // Load prescription
-      const response = await fetch(`/api/prescriptions/topic/${encodeURIComponent(lookupTopic)}`);
+      const response = await fetch(getApiUrl(`/api/prescriptions/topic/${encodeURIComponent(lookupTopic)}`));
       const data = await response.json();
 
       if (!data.success) {
@@ -214,7 +215,7 @@ const PharmacistLookup = () => {
             // Silent: QR JSON parsing failed (expected when no QR data)
           }
           
-          const fraudResp = await fetch('/api/verify', {
+          const fraudResp = await fetch(getApiUrl('/api/verify'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -250,7 +251,7 @@ const PharmacistLookup = () => {
 
       // Check latest status and dispense count
       try {
-        const statusResp = await fetch(`/api/status/topic/${encodeURIComponent(lookupTopic)}`);
+        const statusResp = await fetch(getApiUrl(`/api/status/topic/${encodeURIComponent(lookupTopic)}`));
         const statusData = await statusResp.json();
         const status = ((statusData && statusData.status) || 'unknown').toLowerCase();
         
@@ -366,7 +367,7 @@ const PharmacistLookup = () => {
       setFseLoading(true);
       setError('');
       const token = localStorage.getItem('auth_token');
-      const resp = await fetch('/api/generate-fse', {
+      const resp = await fetch(getApiUrl('/api/generate-fse'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -428,7 +429,7 @@ const PharmacistLookup = () => {
         console.warn('Failed to parse QR JSON:', parseErr);
       }
       
-      const resp = await fetch('/api/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload, topicID: effectiveTopic, doctorNationalId, pharmacistNationalId }) });
+      const resp = await fetch(getApiUrl('/api/verify'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payload, topicID: effectiveTopic, doctorNationalId, pharmacistNationalId }) });
       const data = await resp.json();
       if (!resp.ok || !data.success || !data.valid) throw new Error(data?.error || 'Invalid prescription');
       
@@ -612,7 +613,7 @@ const PharmacistLookup = () => {
       
       setPaymentLoading(true);
       const { totals: payTotals } = computeDispenseTotals(prescription);
-      const resp = await fetch('/api/payments', {
+      const resp = await fetch(getApiUrl('/api/payments'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prescriptionId: prescription.id, method: paymentMethod, amountMAD: payTotals.amountMAD, pharmacistNationalId })
@@ -630,7 +631,7 @@ const PharmacistLookup = () => {
       try {
         // Call dispense after successful payment (enqueue dispensed event)
         const { items, totals } = computeDispenseTotals(prescription);
-        await fetch('/api/dispense', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicID: topicId, pharmacistNationalId, paymentMethod, items, totals }) });
+        await fetch(getApiUrl('/api/dispense'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topicID: topicId, pharmacistNationalId, paymentMethod, items, totals }) });
       } catch (_) {}
       setStep(3);
     } catch (e) {
@@ -680,7 +681,7 @@ const PharmacistLookup = () => {
       }
       
       // Process batch payment (single API call for all)
-      const resp = await fetch('/api/payments/batch', {
+      const resp = await fetch(getApiUrl('/api/payments/batch'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -701,7 +702,7 @@ const PharmacistLookup = () => {
       for (const item of prescriptionQueue) {
         try {
           const { items, totals } = computeDispenseTotals(item.prescription);
-          await fetch('/api/dispense', {
+          await fetch(getApiUrl('/api/dispense'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1390,7 +1391,7 @@ const PharmacistLookup = () => {
                 onClick={async ()=>{
               try {
                 const token = localStorage.getItem('auth_token');
-                    const resp = await fetch('/api/pharmacist-report', { 
+                    const resp = await fetch(getApiUrl('/api/pharmacist-report'), { 
                       method: 'POST', 
                       headers: { 
                         'Content-Type': 'application/json', 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FiRefreshCw, FiAlertTriangle, FiCheckCircle, FiClock, FiPackage } from 'react-icons/fi';
 import axios from 'axios';
+import { getApiUrl } from '../utils/api';
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -19,7 +20,7 @@ const AdminDashboard = () => {
     setError('');
     try {
       const token = localStorage.getItem('auth_token');
-      const response = await axios.get(`/api/admin/hcs-logs?filter=${filter}`, {
+      const response = await axios.get(getApiUrl(`/api/admin/hcs-logs?filter=${filter}`), {
         headers: {
           Authorization: `Bearer ${token}`
         }

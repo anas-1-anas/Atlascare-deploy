@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import * as enc from '../utils/encryptedStorage';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { getApiUrl } from '../utils/api';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import PrescriptionSummary from '../components/PrescriptionSummary';
 import PrescriptionTemplates from '../components/PrescriptionTemplates';
@@ -306,7 +307,7 @@ const DoctorForm = () => {
     (async () => {
       try {
         setMedicinesLoading(true);
-        const resp = await fetch('/api/medicines');
+        const resp = await fetch(getApiUrl('/api/medicines'));
         const data = await resp.json();
         if (mounted) setMedicines(Array.isArray(data) ? data : []);
       } catch (_) {
@@ -468,7 +469,7 @@ const DoctorForm = () => {
       // CNSS Approval in background (non-blocking)
       const token = localStorage.getItem('auth_token');
       setCnssLoading(true);
-      fetch('/api/cnss-approve', {
+      fetch(getApiUrl('/api/cnss-approve'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -486,7 +487,7 @@ const DoctorForm = () => {
         .catch(() => setCnssLoading(false));
 
       // Create prescription directly (skip Step 2)
-      const response = await fetch('/api/issue-prescription', {
+      const response = await fetch(getApiUrl('/api/issue-prescription'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ formData: prescriptionData, geo: currentGeo, ...(doctorNationalId ? { nationalId: doctorNationalId } : {}) })
@@ -1244,7 +1245,7 @@ const DoctorForm = () => {
   const downloadPdf = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const resp = await fetch(`/api/prescriptions/${createdPrescription.id}/pdf`, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+      const resp = await fetch(getApiUrl(`/api/prescriptions/${createdPrescription.id}/pdf`), { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data?.error || 'Failed to download PDF');
       const byteCharacters = atob(data.base64);
@@ -1267,7 +1268,7 @@ const DoctorForm = () => {
   const handlePrint = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      const resp = await fetch(`/api/prescriptions/${createdPrescription.id}/pdf`, { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+      const resp = await fetch(getApiUrl(`/api/prescriptions/${createdPrescription.id}/pdf`), { headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
       const data = await resp.json();
       if (!resp.ok || !data.success) throw new Error(data?.error || 'Failed to load PDF for printing');
       
@@ -1303,7 +1304,7 @@ const DoctorForm = () => {
     
             try {
               const token = localStorage.getItem('auth_token');
-      const resp = await fetch('/api/cancel', {
+      const resp = await fetch(getApiUrl('/api/cancel'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
